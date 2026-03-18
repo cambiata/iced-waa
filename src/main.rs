@@ -15,7 +15,7 @@ struct AudioApp {
     audio_context: AudioContext,
 }
 
-use iced::futures::channel::oneshot::{self, Receiver, Sender};
+use iced::futures::channel::oneshot;
 
 #[derive(Debug, Clone)]
 enum Message {
@@ -37,7 +37,7 @@ impl AudioApp {
                 asource.set_buffer(abuffer);
 
                 // create a oneshot channel for passing info that playback ends
-                let (sender, reciever): (Sender<f32>, Receiver<f32>) = oneshot::channel();
+                let (sender, reciever) = oneshot::channel();
 
                 // start playback immediately...
                 asource.start_at(self.audio_context.current_time());
@@ -45,7 +45,7 @@ impl AudioApp {
                 // ...and set up an callback that runs when playback ends
                 asource.set_onended(|_| {
                     println!("Playback ended callback triggered");
-                    if let Err(_) = sender.send(0.1) {
+                    if let Err(_) = sender.send(()) {
                         // handle the case where the receiver was dropped
                     }
                 });
