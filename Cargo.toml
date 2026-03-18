@@ -8,3 +8,4 @@ iced = { version = "0.13.1", features = ["tokio"] }
 
 web-audio-api = { git = "https://github.com/orottier/web-audio-api-rs.git" }
 tokio = { version = "1.44.2" }
+chrono = "0.4.44"
