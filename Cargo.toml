@@ -4,8 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-iced = { version = "0.13.1", features = ["tokio"] }
+iced = { version = "0.14.0", features = ["tokio"] }
+tokio = { version = "1.52.1", features = ["full"] }
 
-web-audio-api = { git = "https://github.com/orottier/web-audio-api-rs.git" }
-tokio = { version = "1.44.2" }
-chrono = "0.4.44"
+# web-audio-api = { git = "https://github.com/orottier/web-audio-api-rs.git" }
+tokio-stream = "0.1.18"
+web-audio-api = "1.2.0"
