@@ -1,24 +1,10 @@
-use std::collections::{BTreeMap, HashMap};
-use std::fs::File;
-use std::hash::Hash;
+use std::collections::BTreeMap;
 use web_audio_api::context::{AudioContext, AudioContextLatencyCategory, AudioContextOptions, BaseAudioContext};
 use web_audio_api::node::{AudioNode, AudioScheduledSourceNode, OscillatorNode};
 
-// Decode audio buffer from several format
-//
-// `cargo run --release --example decoding`
-//
-// If you are on Linux and use ALSA as audio backend backend, you might want to run
-// the example with the `WEB_AUDIO_LATENCY=playback ` env variable which will
-// increase the buffer size to 1024
-//
-// `WEB_AUDIO_LATENCY=playback cargo run --release --example decoding`
-#[tokio::main]
-
-async fn main() {
+fn main() {
     let context = get_context();
     let mut map: BTreeMap<String, OscillatorNode> = BTreeMap::new();
-
     let context_time = context.current_time();
 
     // Schedule 10 oscillators to blip during 10 seconds
@@ -35,39 +21,17 @@ async fn main() {
             println!("Oscillator ended");
         });
 
-        // store the oscillator in a map so that we can stop it later if needed
-        // map.insert(format!("{:.2}", scheduled_time), osc);
+        map.insert(format!("{:.2}", scheduled_time), osc);
     }
 
     // wait for 5 seconds...
     std::thread::sleep(std::time::Duration::from_secs(5));
     println!("Close");
-    context.close().await;
 
-    // let mut keys = map.keys().cloned().collect::<Vec<String>>();
-    // keys.reverse();
-    // dbg!(&keys);
-
-    // for key in keys {
-    //     println!("Stopping oscillator for key: {}", &key);
-    //     if let Some(osc) = map.get_mut(&key) {
-    //         osc.stop();
-    //     }
-    // }
+    map.values_mut().for_each(|osc| osc.stop());
+    map.clear();
 
     std::thread::sleep(std::time::Duration::from_secs(5));
-}
-
-fn create_blip_sound_oscillator(context: &AudioContext, time: f64) -> OscillatorNode {
-    let mut osc = context.create_oscillator();
-    osc.connect(&context.destination());
-    osc.frequency().set_value(440.0);
-    println!("Creating oscillator for time: {}", time);
-    let current_time = context.current_time();
-    osc.start_at(current_time + time);
-    osc.stop_at(current_time + time + 0.1);
-
-    osc
 }
 
 fn get_context() -> AudioContext {

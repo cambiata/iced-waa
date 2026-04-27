@@ -1,13 +1,8 @@
-use std::collections::HashMap;
-
 use iced::Task;
-use iced::time::{self};
-
+use iced::futures::StreamExt;
 use iced::widget::{button, column, text};
-
-// use std::sync::mpsc::{Receiver, Sender, channel};
-
-use web_audio_api::node::{AudioDestinationNode, OscillatorNode};
+use std::collections::BTreeMap;
+use web_audio_api::node::OscillatorNode;
 use web_audio_api::{
     context::{AudioContext, AudioContextLatencyCategory, AudioContextOptions, BaseAudioContext},
     node::{AudioNode, AudioScheduledSourceNode},
@@ -21,56 +16,60 @@ fn main() -> iced::Result {
 struct AudioApp {
     audio_context: AudioContext,
     status_info: String,
-
-    osc_map: HashMap<String, OscillatorNode>,
+    osc_map: BTreeMap<String, OscillatorNode>,
 }
 
 #[derive(Debug, Clone)]
 enum Message {
     StartPlayback,
-    NotifyPlaybackStopped(String),
+    NotifyPlaybackStopped(f64),
+    StopPlayback,
 }
 
 impl AudioApp {
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::StartPlayback => {
-                let (sender, reciever) = std::sync::mpsc::channel::<String>();
-                let time = self.audio_context.current_time();
+                let (sender, mut reciever) = iced::futures::channel::mpsc::channel::<f64>(1);
 
+                let time = self.audio_context.current_time();
                 for i in 1..=9 {
                     let osc = self.create_oscillator(time + i as f64);
-                    let sender_clone = sender.clone(); // clone the sender...
+                    let mut sender_clone = sender.clone(); // clone the sender...
                     osc.set_onended(move |_| {
-                        if let Err(_) = sender_clone.send(format!("{:.2}", time + i as f64)) {
-                            println!("Failed to send playback stopped notification");
+                        if let Err(e) = sender_clone.try_send(time + i as f64) {
+                            println!("{}", e);
                         }
                     });
+                    self.osc_map.insert(format!("{:0007.2}", time + i as f64), osc);
                 }
 
-                return Task::stream(tokio_stream::iter(
-                    std::sync::mpsc::Receiver::into_iter(reciever).map(|time_string| Message::NotifyPlaybackStopped(time_string)),
-                ));
+                return Task::stream(reciever.map(|time| Message::NotifyPlaybackStopped(time)));
             }
-            Message::NotifyPlaybackStopped(time_string) => {
-                println!("Playback has stopped at {}", time_string);
+
+            Message::NotifyPlaybackStopped(time) => {
+                println!("Playback has stopped at {:0007.2}", time);
+                self.osc_map.remove(&format!("{:0007.2}", time));
+                dbg!(&self.osc_map.keys().cloned().collect::<Vec<String>>());
+                Task::none()
+            }
+
+            Message::StopPlayback => {
+                for osc in self.osc_map.values_mut() {
+                    osc.stop();
+                }
                 Task::none()
             }
         }
     }
 
     fn view(&self) -> iced::Element<'_, Message> {
-        column![text(self.status_info.as_str()), button("Play").on_press(Message::StartPlayback),].into()
-    }
-
-    fn create_oscillator(&mut self, time: f64) -> OscillatorNode {
-        let mut oscillator = self.audio_context.create_oscillator();
-        oscillator.connect(&self.audio_context.destination());
-        oscillator.frequency().set_value(440.0);
-        oscillator.start_at(time);
-        oscillator.stop_at(time + 0.5);
-
-        oscillator
+        column![
+            text(self.status_info.as_str()),
+            button("Play").on_press(Message::StartPlayback),
+            button("Stop").on_press(Message::StopPlayback),
+        ]
+        .into()
     }
 
     fn new() -> (Self, Task<Message>) {
@@ -90,9 +89,18 @@ impl AudioApp {
             Self {
                 audio_context: context,
                 status_info: "Hello!".to_string(),
-                osc_map: HashMap::new(),
+                osc_map: BTreeMap::new(),
             },
             Task::none(),
         )
+    }
+
+    fn create_oscillator(&self, time: f64) -> OscillatorNode {
+        let mut oscillator = self.audio_context.create_oscillator();
+        oscillator.connect(&self.audio_context.destination());
+        oscillator.frequency().set_value(440.0);
+        oscillator.start_at(time);
+        oscillator.stop_at(time + 0.2);
+        oscillator
     }
 }
