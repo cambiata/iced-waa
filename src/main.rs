@@ -22,7 +22,7 @@ struct AudioApp {
 #[derive(Debug, Clone)]
 enum Message {
     StartPlayback,
-    NotifyPlaybackStopped(f64),
+    NotifyNodeEnded(f64),
     StopPlayback,
 }
 
@@ -44,11 +44,11 @@ impl AudioApp {
                     self.osc_map.insert(format!("{:0007.2}", time + i as f64), osc);
                 }
 
-                return Task::stream(reciever.map(|time| Message::NotifyPlaybackStopped(time)));
+                return Task::stream(reciever.map(|time| Message::NotifyNodeEnded(time)));
             }
 
-            Message::NotifyPlaybackStopped(time) => {
-                println!("Playback has stopped at {:0007.2}", time);
+            Message::NotifyNodeEnded(time) => {
+                println!("Node ended at {:0007.2}", time);
                 self.osc_map.remove(&format!("{:0007.2}", time));
                 dbg!(&self.osc_map.keys().cloned().collect::<Vec<String>>());
                 Task::none()
